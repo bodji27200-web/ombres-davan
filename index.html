@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0c0a" />
+<title>Ombres d'Avan — Idle RPG Dark Fantasy</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ============ MONDE (Canvas plein écran) ============ -->
+<canvas id="world"></canvas>
+
+<!-- ============ HUD (overlay DOM au-dessus du canvas) ============ -->
+<div id="hud">
+
+  <!-- Barre de ressources (haut) -->
+  <div class="resbar" id="resbar">
+    <div class="res res-gold"  title="Or">      <span class="ico">◆</span><span id="resGold">0</span></div>
+    <div class="res res-wood"  title="Bois">    <span class="ico">❦</span><span id="resWood">0</span></div>
+    <div class="res res-stone" title="Pierre">  <span class="ico">▰</span><span id="resStone">0</span></div>
+    <div class="res res-diff"  title="Difficulté" id="resDiff"><span class="ico">☗</span><span id="diffLabel">—</span></div>
+  </div>
+
+  <!-- Indicateur de combat hors-écran (cliquable pour recadrer la caméra) -->
+  <button id="combatIndicator" class="combat-indicator hidden" type="button">
+    <span class="ci-icon">⚔</span><span class="ci-text">Combat en cours</span>
+  </button>
+
+  <!-- Panneau contextuel d'un bâtiment / lieu (gauche) -->
+  <aside id="buildingPanel" class="building-panel hidden">
+    <header class="bp-head">
+      <span id="bpName" class="bp-name">—</span>
+      <span id="bpLevel" class="bp-level">Niv. 1</span>
+    </header>
+    <div id="bpBody" class="bp-body"></div>
+    <div id="bpActions" class="bp-actions"></div>
+    <button class="bp-close" id="bpClose" type="button">✕</button>
+  </aside>
+
+  <!-- Menu contextuel d'un camp ennemi (apparaît au clic sur un camp) -->
+  <div id="campMenu" class="camp-menu hidden">
+    <div class="cm-title" id="cmTitle">Camp</div>
+    <div class="cm-body" id="cmBody"></div>
+    <div class="cm-actions">
+      <button id="cmSend" class="btn btn-danger" type="button">Envoyer les héros</button>
+      <button id="cmClose" class="btn btn-ghost" type="button">Fermer</button>
+    </div>
+  </div>
+
+  <!-- Barre d'outils (bas-droite) : raccourcis fonctionnels -->
+  <nav class="toolbar" id="toolbar">
+    <button class="tool" data-action="recruit"  title="Taverne — Recruter un héros"><span>⚑</span></button>
+    <button class="tool" data-action="heroes"   title="Héros — Roster"><span>☥</span></button>
+    <button class="tool" data-action="recenter" title="Recentrer sur le village"><span>⌂</span></button>
+    <button class="tool" data-action="save"     title="Sauvegarder maintenant"><span>❖</span></button>
+  </nav>
+
+  <!-- Bouton Coffre de Victoire (bas-droite, au-dessus de la toolbar) -->
+  <button id="victoryChest" class="victory-chest hidden" type="button">
+    <span class="vc-chest">🜲</span>
+    <span class="vc-label" id="vcLabel">Butin</span>
+  </button>
+
+  <!-- Toast / notifications transitoires -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Compteur FPS (debug) -->
+  <div id="fps" class="fps">—</div>
+</div>
+
+<!-- ============ MODALES ============ -->
+
+<!-- Écran de démarrage + sélecteur de difficulté -->
+<div id="startScreen" class="modal-overlay">
+  <div class="modal start-modal">
+    <h1 class="game-title">OMBRES D'AVAN</h1>
+    <p class="game-sub">Bâtissez votre royaume. Forgez vos héros. Survivez aux ténèbres.</p>
+
+    <div class="diff-grid">
+      <button class="diff-card" data-diff="easy">
+        <span class="diff-name">Facile</span>
+        <span class="diff-desc">Ressources abondantes, camps lents à se fortifier.</span>
+      </button>
+      <button class="diff-card diff-reco" data-diff="normal">
+        <span class="diff-name">Normal</span>
+        <span class="diff-desc">L'équilibre voulu. Recommandé.</span>
+      </button>
+      <button class="diff-card" data-diff="hard">
+        <span class="diff-name">Difficile</span>
+        <span class="diff-desc">Ressources réduites, fortification rapide.</span>
+      </button>
+      <button class="diff-card diff-hardcore" data-diff="hardcore">
+        <span class="diff-name">Hardcore</span>
+        <span class="diff-desc">Sauvegarde unique. Pertes lourdes. Mort définitive aux Boss.</span>
+      </button>
+    </div>
+
+    <div class="start-footer">
+      <button id="continueBtn" class="btn btn-primary hidden" type="button">Continuer la partie</button>
+      <span class="version">v0.1 — Vertical Slice</span>
+    </div>
+  </div>
+</div>
+
+<!-- Modale de recrutement (Taverne) -->
+<div id="recruitModal" class="modal-overlay hidden">
+  <div class="modal">
+    <header class="modal-head"><h2>Taverne — Recrutement</h2><button class="modal-close" data-close="recruitModal" type="button">✕</button></header>
+    <div id="recruitBody" class="modal-body"></div>
+  </div>
+</div>
+
+<!-- Modale Roster (Héros) -->
+<div id="heroesModal" class="modal-overlay hidden">
+  <div class="modal">
+    <header class="modal-head"><h2>Vos Héros</h2><button class="modal-close" data-close="heroesModal" type="button">✕</button></header>
+    <div id="heroesBody" class="modal-body roster-body"></div>
+  </div>
+</div>
+
+<!-- Modale de résumé de victoire (ouverte par le Coffre) -->
+<div id="victoryModal" class="modal-overlay hidden">
+  <div class="modal victory-modal">
+    <header class="modal-head"><h2 class="victory-title">Victoire !</h2><button class="modal-close" data-close="victoryModal" type="button">✕</button></header>
+    <div id="victoryBody" class="modal-body"></div>
+  </div>
+</div>
+
+<!-- ============ SCRIPTS (ordre de dépendance) ============ -->
+<script src="entities.js"></script>
+<script src="world.js"></script>
+<script src="combat.js"></script>
+<script src="save.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
