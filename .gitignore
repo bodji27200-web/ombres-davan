@@ -5,6 +5,7 @@
 # Images de référence : captures d'écran de Champions of Avan (droits d'auteur).
 # Non publiées sur ce dépôt public. À conserver en local uniquement.
 IMG_*.png
+IMG_*.png.import
 
 # Fichiers temporaires / outils
 _smoke.js
