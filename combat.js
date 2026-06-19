@@ -81,7 +81,13 @@
       let actor = null, best = THRESH;
       for (const u of this.units) {
         if (!u.alive) continue;
-        u.gauge += u.agi * GAUGE_K * dt;
+        // Boss enragé : ATK & Agilité doublées sous 40% PV
+        if (u.isBoss && !u.enraged && u.hp < u.maxHp * 0.4) {
+          u.enraged = true;
+          this._floater(u, "RAGE !", "#ff3a2a", 18);
+        }
+        const effAgi = u.agi * (u.enraged ? 2 : 1);
+        u.gauge += effAgi * GAUGE_K * dt;
         if (u.gauge >= best) { best = u.gauge; actor = u; }
       }
       if (actor) this._beginTurn(actor);
@@ -145,12 +151,25 @@
         this._checkEnd();
         return null;
       }
+      // Boss : invoque parfois des sbires, sinon frappe le plus faible
+      if (e.aiKey === "boss") {
+        if (e.summonType && this.livingEnemies().length < 6 && Math.random() < 0.4) {
+          return { type: "summon", target: e };
+        }
+        const t = heroes.slice().sort((a, b) => a.hp - b.hp)[0];
+        return { type: "attack", target: t };
+      }
+      // Bête sauvage : focalise l'unité au plus petit PV max
+      if (e.aiKey === "bete") {
+        const t = heroes.slice().sort((a, b) => a.maxHp - b.maxHp)[0];
+        return { type: "attack", target: t };
+      }
       if (e.aiKey === "capitaine") {
         // attaque le héros le plus faible (agressif)
         const t = heroes.slice().sort((a, b) => a.hp - b.hp)[0];
         return { type: "attack", target: t };
       }
-      // sbire : le plus proche (haut de colonne)
+      // sbire / sbire_undead : le plus proche (haut de colonne) — les morts-vivants ne fuient jamais
       return { type: "attack", target: heroes[0] };
     },
 
@@ -194,6 +213,15 @@
         target.hp = Math.min(target.maxHp, target.hp + amount);
         this._floater(target, "+" + amount, "#7bd06a", 14);
         target.flash = 1;
+        return;
+      }
+      if (a.type === "summon") {
+        const minion = Game.Entities.makeEnemy(actor.summonType, this.camp ? this.camp.level : 1);
+        this._initUnit(minion, "enemy", this.enemies.length);
+        this.enemies.push(minion);
+        this.units.push(minion);
+        this._floater(actor, "Invocation !", "#9b6fd0", 13);
+        actor.flash = 1;
         return;
       }
       // attaque

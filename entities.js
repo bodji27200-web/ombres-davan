@@ -202,6 +202,17 @@
       hp: [9, 12], atk: [3, 4], arm: [0, 1], agi: [6, 9] },
     capitaine_korcha: { name: "Capitaine Kor'Cha", family: "gobelins", ai: "capitaine",
       hp: [26, 32], atk: [5, 6], arm: [1, 2], agi: [5, 7], captain: true },
+    // Bêtes sauvages : rapides, focalisent la cible la plus fragile
+    bete: { name: "Bête Sauvage", family: "betes", ai: "bete",
+      hp: [18, 24], atk: [5, 8], arm: [0, 1], agi: [9, 13] },
+    alpha_bete: { name: "Alpha de la Meute", family: "betes", ai: "capitaine",
+      hp: [30, 38], atk: [6, 8], arm: [1, 2], agi: [8, 11], captain: true },
+    // Morts-vivants : sans peur (ne fuient jamais)
+    squelette: { name: "Squelette Pillard", family: "morts-vivants", ai: "sbire_undead",
+      hp: [12, 16], atk: [3, 5], arm: [1, 2], agi: [5, 8] },
+    // BOSS : Roi des Ossements (Enragé sous 40% PV + invoque des squelettes)
+    roi_ossements: { name: "Roi des Ossements", family: "morts-vivants", ai: "boss",
+      hp: [95, 115], atk: [7, 9], arm: [2, 3], agi: [5, 7], boss: true, summon: "squelette" },
   };
 
   let _enemyId = 1;
@@ -214,6 +225,8 @@
       this.family = data.family;
       this.aiKey = data.aiKey;
       this.isCaptain = !!data.isCaptain;
+      this.isBoss = !!data.isBoss;
+      this.summonType = data.summonType || null;
       this.level = data.level || 1;
       this.base = data.base;        // {hp,atk,arm,agi}
       this.hp = this.maxHp;
@@ -239,6 +252,7 @@
     return new Enemy({
       id: "e" + (_enemyId++), seed, typeKey,
       name: t.name, family: t.family, aiKey: t.ai, isCaptain: t.captain,
+      isBoss: t.boss, summonType: t.summon,
       level: level || 1,
       base: rollBase(rng, { hp: t.hp, atk: t.atk, arm: t.arm, agi: t.agi }),
     });
@@ -252,6 +266,7 @@
       family: def.family, level: def.level || 1,
       roster: def.roster, fortifyTimer: 0, cleared: false,
       baseReward: def.baseReward || { gold: 60, xp: 80 },
+      permadeath: !!def.permadeath, isBoss: !!def.boss,
       enemies,
     };
   }
@@ -401,7 +416,12 @@
       x.fillStyle = bg; x.fillRect(0, 0, size, size);
 
       const cx = size / 2, s = size / 64;
-      const skin = enemy ? RNG.pick(rng, ["#7fa05a", "#6f7d4a", "#94a36a", "#5d6b3f"]) : RNG.pick(rng, SKINS);
+      let skin;
+      if (enemy) {
+        if (kind.indexOf("morts-vivants") >= 0) skin = RNG.pick(rng, ["#9aa39a", "#8a9488", "#aeb3a4", "#7c857a"]);
+        else if (kind.indexOf("betes") >= 0)    skin = RNG.pick(rng, ["#7a5a3c", "#6b4f34", "#8a6a44", "#5d4630"]);
+        else                                     skin = RNG.pick(rng, ["#7fa05a", "#6f7d4a", "#94a36a", "#5d6b3f"]);
+      } else skin = RNG.pick(rng, SKINS);
       const hair = RNG.pick(rng, HAIRS);
 
       // épaules

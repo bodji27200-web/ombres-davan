@@ -21,6 +21,18 @@
       roster: [{ type: "soldat_korcha" }, { type: "soldat_korcha" }, { type: "capitaine_korcha" }],
       baseReward: { gold: 80, xp: 120 },
     },
+    taniere_sauvage: {
+      id: "taniere_sauvage", name: "Tanière Sauvage", pos: { x: 600, y: 2250 },
+      family: "betes", level: 1,
+      roster: [{ type: "bete" }, { type: "bete" }, { type: "alpha_bete" }],
+      baseReward: { gold: 120, xp: 165 },
+    },
+    ossuaire_roi: {
+      id: "ossuaire_roi", name: "Ossuaire du Roi", pos: { x: 2050, y: 2450 },
+      family: "morts-vivants", level: 1,
+      roster: [{ type: "squelette" }, { type: "squelette" }, { type: "roi_ossements" }],
+      baseReward: { gold: 280, xp: 340 }, boss: true, permadeath: true,
+    },
   };
 
   const DIFFS = {
@@ -185,24 +197,32 @@
     const xp = Math.round(camp.baseReward.xp * lvl);
     if (heroes.some(h => h.talentKey === "cupide")) gold = Math.round(gold * 1.15);
     Game.state.victoryChest = { place: camp.name, gold, xp, heroIds: heroes.map(h => h.id) };
-    returnHeroes(heroes);
+    returnHeroes(heroes, camp.permadeath);
     Game.UI.showChest(camp.name);
     Game.UI.toast("Victoire à « " + camp.name + " » ! Ouvre le coffre pour récupérer le butin.");
     Game.Save.save();
   };
 
   Game.grantDefeat = (camp, heroes) => {
-    returnHeroes(heroes);
+    returnHeroes(heroes, camp.permadeath);
     const loss = Math.round(Game.state.resources.gold * Game.state.diff.lossMult);
     Game.state.resources.gold = Math.max(0, Game.state.resources.gold - loss);
     Game.UI.toast("Défaite à « " + camp.name + " »" + (loss > 0 ? " — " + loss + " or perdu." : "."));
     Game.Save.save();
   };
 
-  function returnHeroes(heroes) {
+  function returnHeroes(heroes, permadeath) {
     const v = Game.state.buildings.townhall.pos;
     for (const h of heroes) {
       if (h.hp <= 0) {
+        if (permadeath) {
+          const i = Game.state.heroes.indexOf(h);
+          if (i >= 0) Game.state.heroes.splice(i, 1);
+          const si = Game.state.selection.indexOf(h.id);
+          if (si >= 0) Game.state.selection.splice(si, 1);
+          Game.UI.toast("☠ " + h.name + " est tombé… définitivement.");
+          continue;
+        }
         h.state = "wounded";
         h.woundedUntil = Date.now() + Game.state.diff.woundSec * 1000;
       } else {
@@ -395,7 +415,8 @@
     openCampMenu(camp) {
       $("cmTitle").textContent = camp.name;
       const alive = camp.enemies.filter(e => e.hp > 0);
-      let html = '<div style="margin-bottom:6px;color:var(--muted)">Famille : ' + camp.family + " · Niveau " + camp.level + "</div>";
+      let html = '<div style="margin-bottom:6px;color:var(--muted)">Famille : ' + camp.family + " · Niveau " + camp.level +
+                 (camp.isBoss ? ' · <b style="color:#ff6f6f">☠ BOSS</b>' : "") + "</div>";
       if (camp.cleared) {
         html += '<div class="warn">Camp vaincu. Réapparition dans ' + Game.fmtTime((RESPAWN_SEC - (camp.respawnTimer || 0)) * 1000) + ".</div>";
       } else {
@@ -407,7 +428,10 @@
         }
         const reward = camp.baseReward.gold * camp.level;
         html += '<div style="margin-top:8px">Récompense : <b style="color:var(--gold-hi)">' + reward + " ◆</b> + XP</div>";
-        html += '<div style="margin-top:6px;color:var(--green)">✔ Aucun risque de mort définitive sur cette mission.</div>';
+        if (camp.permadeath)
+          html += '<div style="margin-top:6px" class="warn">⚠ RISQUE DE MORT DÉFINITIVE — un héros tombé ici est perdu à jamais.</div>';
+        else
+          html += '<div style="margin-top:6px;color:var(--green)">✔ Aucun risque de mort définitive sur cette mission.</div>';
       }
       $("cmBody").innerHTML = html;
       const sendBtn = $("cmSend");

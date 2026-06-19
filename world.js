@@ -377,7 +377,10 @@
       for (const c of Game.state.camps) {
         if (!this.isOnScreen(c.pos.x, c.pos.y, 160)) continue;
         const s = this.worldToScreen(c.pos.x, c.pos.y);
-        this.drawGoblinCamp(this.ctx, s.x, s.y, c);
+        if (c.family === "betes") this.drawBeastCamp(this.ctx, s.x, s.y, c);
+        else if (c.family === "morts-vivants") this.drawUndeadCamp(this.ctx, s.x, s.y, c);
+        else this.drawGoblinCamp(this.ctx, s.x, s.y, c);
+        if (c.isBoss) this.drawBossMarker(this.ctx, s.x, s.y - 46, c);
         const alive = c.enemies.filter(e => e.hp > 0).length;
         const txt = c.cleared ? c.name + " (vaincu)" : c.name + " · " + alive + " ennemis";
         this.label(this.ctx, s.x, s.y + 34, txt, c.cleared ? "#9a937f" : "#ff8a7a");
@@ -414,6 +417,69 @@
       x.strokeStyle = "#2a2018"; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px + 24, py + 4); x.lineTo(px + 24, py - 18); x.stroke();
       x.fillStyle = "#6a1f1a"; x.fillRect(px + 24, py - 18, 12, 9);
       x.fillStyle = "#e8e0cf"; x.beginPath(); x.arc(px + 30, py - 14, 2.2, 0, 7); x.fill();
+    },
+
+    drawBeastCamp(x, px, py, c) {
+      const t = this._t;
+      this.shadow(x, px, py, 40, 14);
+      // griffures au sol
+      x.strokeStyle = "rgba(60,40,30,.5)"; x.lineWidth = 2;
+      for (let i = 0; i < 3; i++) { x.beginPath(); x.moveTo(px - 20 + i * 7, py + 14); x.lineTo(px - 10 + i * 7, py + 6); x.stroke(); }
+      // monticule / tanière
+      x.fillStyle = "#3a342c"; x.beginPath(); x.moveTo(px - 30, py + 8); x.quadraticCurveTo(px, py - 34, px + 30, py + 8); x.closePath(); x.fill();
+      x.fillStyle = "#0a0a08"; x.beginPath(); x.ellipse(px, py + 2, 12, 10, 0, 0, 7); x.fill();
+      // os plantés
+      x.strokeStyle = "#d8d2c4"; x.lineWidth = 2;
+      x.beginPath(); x.moveTo(px - 24, py + 9); x.lineTo(px - 28, py - 6); x.stroke();
+      x.fillStyle = "#e8e0cf"; x.beginPath(); x.arc(px - 28, py - 7, 2, 0, 7); x.fill();
+      // carcasse (côtes)
+      x.strokeStyle = "#cfc8b8"; x.lineWidth = 1.5;
+      for (let i = 0; i < 4; i++) { x.beginPath(); x.arc(px + 17, py + 11, 4 + i * 2, Math.PI, Math.PI * 2); x.stroke(); }
+      // yeux rouges dans la tanière
+      if (!c.cleared) { const g = 0.5 + 0.5 * Math.sin(t * 4); x.fillStyle = "rgba(255,40,30," + (0.6 + g * 0.4) + ")";
+        x.beginPath(); x.arc(px - 3, py + 2, 1.6, 0, 7); x.arc(px + 3, py + 2, 1.6, 0, 7); x.fill(); }
+    },
+
+    drawUndeadCamp(x, px, py, c) {
+      const t = this._t;
+      this.shadow(x, px, py, 40, 14);
+      // brume verte
+      x.save(); x.globalAlpha = 0.16 + 0.06 * Math.sin(t * 1.5); x.fillStyle = "#6fae5a";
+      x.beginPath(); x.ellipse(px, py + 6, 34, 14, 0, 0, 7); x.fill(); x.restore();
+      // arche de crypte
+      x.fillStyle = "#5a5a54"; x.fillRect(px - 22, py - 20, 8, 28); x.fillRect(px + 14, py - 20, 8, 28);
+      x.fillStyle = "#6a6a62"; x.fillRect(px - 24, py - 24, 48, 8);
+      x.fillStyle = "#0a0c0a"; x.beginPath(); x.moveTo(px - 12, py + 8); x.lineTo(px - 12, py - 14);
+      x.quadraticCurveTo(px, py - 22, px + 12, py - 14); x.lineTo(px + 12, py + 8); x.closePath(); x.fill();
+      // pierres tombales
+      x.fillStyle = "#4a4d50";
+      for (const dx of [-30, 28]) {
+        x.beginPath(); x.moveTo(px + dx - 5, py + 10); x.lineTo(px + dx - 5, py - 2);
+        x.quadraticCurveTo(px + dx, py - 8, px + dx + 5, py - 2); x.lineTo(px + dx + 5, py + 10); x.closePath(); x.fill();
+        x.strokeStyle = "#2c2e30"; x.lineWidth = 1; x.beginPath();
+        x.moveTo(px + dx - 2, py + 1); x.lineTo(px + dx + 2, py + 1); x.moveTo(px + dx, py - 2); x.lineTo(px + dx, py + 5); x.stroke();
+      }
+      // crâne au sol
+      x.fillStyle = "#e8e0cf"; x.beginPath(); x.arc(px - 16, py + 12, 3, 0, 7); x.fill();
+      x.fillStyle = "#0a0c0a"; x.beginPath(); x.arc(px - 17, py + 12, 0.8, 0, 7); x.arc(px - 15, py + 12, 0.8, 0, 7); x.fill();
+      // lueur verte dans la crypte
+      if (!c.cleared) { const g = 0.5 + 0.5 * Math.sin(t * 3); x.fillStyle = "rgba(120,220,120," + (0.4 + g * 0.4) + ")";
+        x.beginPath(); x.arc(px, py - 4, 2, 0, 7); x.fill(); }
+    },
+
+    drawBossMarker(x, px, py, c) {
+      if (c.cleared) return;
+      const t = this._t;
+      // aura pulsée autour du camp
+      const pulse = 0.35 + 0.3 * Math.sin(t * 3);
+      x.strokeStyle = "rgba(216,69,58," + pulse + ")"; x.lineWidth = 2;
+      x.beginPath(); x.ellipse(px, py + 50, 44, 18, 0, 0, 7); x.stroke();
+      // couronne
+      x.fillStyle = "#f4d488"; x.strokeStyle = "#7a5a1a"; x.lineWidth = 1;
+      x.beginPath();
+      x.moveTo(px - 9, py + 4); x.lineTo(px - 9, py - 3); x.lineTo(px - 4, py + 1);
+      x.lineTo(px, py - 6); x.lineTo(px + 4, py + 1); x.lineTo(px + 9, py - 3); x.lineTo(px + 9, py + 4);
+      x.closePath(); x.fill(); x.stroke();
     },
 
     /* ---- chariots ---- */
