@@ -1,5 +1,5 @@
 /* =================================================================
-   entities.js — Données, formules et classes du jeu
+   entities.js – Données, formules et classes du jeu
    Attache tout à window.Game.Entities (+ Game.RNG, Game.Art)
    ================================================================= */
 (function (Game) {
@@ -394,10 +394,21 @@
   }
 
   /* =================================================================
-     ART — portraits & helpers de dessin procéduraux
+     ART – portraits & helpers de dessin procéduraux
      ================================================================= */
   const SKINS = ["#caa07a", "#b98c63", "#9c6f4a", "#d8b894", "#7d5a3c", "#c2a487"];
   const HAIRS = ["#2a2018", "#46372a", "#71665a", "#1c1c1c", "#8a7a5c", "#5a2f22", "#d8d2c4"];
+
+  // éclaircit / assombrit une couleur hex (#rrggbb) par un facteur
+  function shadeColor(hex, f) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+    if (!m) return hex;
+    const n = parseInt(m[1], 16);
+    const r = Math.max(0, Math.min(255, ((n >> 16) & 255) * f)) | 0;
+    const g = Math.max(0, Math.min(255, ((n >> 8) & 255) * f)) | 0;
+    const b = Math.max(0, Math.min(255, (n & 255) * f)) | 0;
+    return "rgb(" + r + "," + g + "," + b + ")";
+  }
 
   const Art = {
     // Génère un portrait stylisé dans un canvas (visage reconnaissable, dark fantasy).
@@ -423,12 +434,18 @@
         else                                     skin = RNG.pick(rng, ["#7fa05a", "#6f7d4a", "#94a36a", "#5d6b3f"]);
       } else skin = RNG.pick(rng, SKINS);
       const hair = RNG.pick(rng, HAIRS);
+      const accent = enemy ? "#6e1c14" : ((CLASSES[kind] && CLASSES[kind].color) || "#7a6a4a");
 
-      // épaules
-      x.fillStyle = enemy ? "#2c2118" : "#3a342a";
+      // épaules / armure (teintée par la classe)
+      const arm = x.createLinearGradient(0, 42 * s, 0, size);
+      arm.addColorStop(0, shadeColor(accent, enemy ? 0.5 : 0.85)); arm.addColorStop(1, shadeColor(accent, 0.32));
+      x.fillStyle = arm;
       x.beginPath();
       x.moveTo(cx - 26 * s, size); x.quadraticCurveTo(cx - 24 * s, 44 * s, cx, 44 * s);
       x.quadraticCurveTo(cx + 24 * s, 44 * s, cx + 26 * s, size); x.closePath(); x.fill();
+      // liseré de col clair
+      x.strokeStyle = shadeColor(accent, 1.25); x.lineWidth = 1.4 * s;
+      x.beginPath(); x.moveTo(cx - 20 * s, 47 * s); x.quadraticCurveTo(cx, 42 * s, cx + 20 * s, 47 * s); x.stroke();
 
       // cou
       x.fillStyle = skin; x.fillRect(cx - 6 * s, 38 * s, 12 * s, 12 * s);
@@ -437,6 +454,11 @@
       x.beginPath();
       x.ellipse(cx, 28 * s, 13 * s, 16 * s, 0, 0, Math.PI * 2);
       x.fillStyle = skin; x.fill();
+      // ombre côté droit + rim light chaud côté gauche (volume du visage)
+      x.save(); x.beginPath(); x.ellipse(cx, 28 * s, 13 * s, 16 * s, 0, 0, 7); x.clip();
+      x.fillStyle = "rgba(0,0,0,.22)"; x.fillRect(cx + 4 * s, 12 * s, size, 40 * s);
+      x.fillStyle = "rgba(255,210,150,.14)"; x.fillRect(cx - 16 * s, 12 * s, 8 * s, 40 * s);
+      x.restore();
 
       // oreilles (pointues si ennemi gobelin)
       x.fillStyle = skin;
@@ -492,8 +514,9 @@
       const vg = x.createRadialGradient(cx, 26 * s, 8 * s, cx, 30 * s, size * 0.7);
       vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.55)");
       x.fillStyle = vg; x.fillRect(0, 0, size, size);
-      // cadre
-      x.strokeStyle = "#4a4d3e"; x.lineWidth = 2; x.strokeRect(1, 1, size - 2, size - 2);
+      // cadre doré (double liseré)
+      x.strokeStyle = "#0a0a08"; x.lineWidth = 3; x.strokeRect(1.5, 1.5, size - 3, size - 3);
+      x.strokeStyle = enemy ? "#7a3a2a" : "#8a6a30"; x.lineWidth = 1.4; x.strokeRect(3, 3, size - 6, size - 6);
       return c;
     },
 
@@ -502,18 +525,25 @@
       const bob = Math.sin(t * 6) * 1.2 * scale;
       ctx.save();
       ctx.translate(x, y - bob);
-      // ombre
-      ctx.fillStyle = "rgba(0,0,0,.35)";
-      ctx.beginPath(); ctx.ellipse(0, 2 * scale, 5 * scale, 2.2 * scale, 0, 0, 7); ctx.fill();
-      // cape / corps
-      ctx.fillStyle = bodyColor;
+      // ombre portée
+      ctx.fillStyle = "rgba(0,0,0,.42)";
+      ctx.beginPath(); ctx.ellipse(0, 3 * scale, 5.6 * scale, 2.4 * scale, 0, 0, 7); ctx.fill();
+      // cape / corps avec volume (lumière à gauche, ombre à droite)
+      const g = ctx.createLinearGradient(-5 * scale, -10 * scale, 5 * scale, 2 * scale);
+      g.addColorStop(0, shadeColor(bodyColor, 1.3)); g.addColorStop(1, shadeColor(bodyColor, 0.65));
+      ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.moveTo(-4 * scale, 1 * scale);
-      ctx.quadraticCurveTo(0, -11 * scale, 4 * scale, 1 * scale);
+      ctx.moveTo(-4.6 * scale, 1.6 * scale);
+      ctx.quadraticCurveTo(0, -12 * scale, 4.6 * scale, 1.6 * scale);
+      ctx.quadraticCurveTo(0, -2.5 * scale, -4.6 * scale, 1.6 * scale);
       ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 0.8 * scale; ctx.stroke();
       // tête
       ctx.fillStyle = headColor;
-      ctx.beginPath(); ctx.arc(0, -9 * scale, 2.6 * scale, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(0, -9.4 * scale, 2.8 * scale, 0, 7); ctx.fill();
+      // rim light chaud sur le crâne
+      ctx.strokeStyle = "rgba(255,214,150,.55)"; ctx.lineWidth = 0.9 * scale;
+      ctx.beginPath(); ctx.arc(0, -9.4 * scale, 2.6 * scale, Math.PI * 1.05, Math.PI * 1.75); ctx.stroke();
       ctx.restore();
     },
   };
